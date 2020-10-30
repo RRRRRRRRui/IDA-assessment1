@@ -1,0 +1,514 @@
+---
+title: "Assignment1 "
+author: "Haorui Tao s2039924"
+output:
+  pdf_document:
+          latex_engine: xelatex
+          number_sections: yes
+fig_caption: yes
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment = NA, message = FALSE, warning = FALSE)
+```
+
+```{r library, eval = TRUE}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(skimr)
+library(knitr)
+library(moderndive)
+library(kableExtra)
+library(gridExtra)
+library(datasets)
+library(MASS)
+library(GGally)
+
+
+library(gapminder)
+
+```
+
+# 1{-}
+## (a){-}
+In this case we choose (ii) because as ALQ is MCAR, the distribution among the missing values are unrelated to the data. As missing values in ALQ=Yes account for 30%, the missing values in ALQ=No should also be 30%.
+
+## (b){-}
+In this question we choose (ii) because as ALQ is MAR given gender, the probability of being missing is the same only within groups defined by the observed data, thus it's nothing to do with "Yes" and "No" because ALQ is MCAR.
+
+## (c){-}
+In this question we choose (iii) because we can not conclude missing data distribution of one level according to information of another level in MAR.
+
+# 2{-}
+The largest subsmaple case under a complete case analysis is a subsample with 90 subjects. In this case, the data pattern is monotone, which means the dataset can be arranged by sorting rows and columns and in this case, all missing values are in the same rows. The smallest subsample case under a complete case analysis is a subsample case with 0 subject, which indicates that the missing data pattern is arbitrary that each row of the whole dataset contains only one missing value thus the subsample set is the smallest which returns 0 rows.
+
+# 3{-}
+## (a){-}
+The mechanism is MAR because the missing values fully depend on the fully observed data $Y_{1}$. From the marginal distribution plot \ref{fig:MAR} of the complete data and observed data, we can see that the distribution of observed data is different from complete data due to the MAR mechanism. For the observed data, the distribution is symmetric and it's more concentrated and the overall mean is higher than complete value, which is resulted from that small values of $Y_{2}$ are removed.
+```{r simulate, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#generate z1,z2,z3
+n <- 500
+set.seed(5)
+z1 <- rnorm(500)
+set.seed(6)
+z2 <- rnorm(500)
+set.seed(7)
+z3 <- rnorm(500)
+#calculate Y1, Y2
+y1 <- 1+z1
+y2 <- 5+2*z1+z2
+Y <- cbind(y1,y2)
+Y.comp <- cbind(y1,y2)
+#missing constraint
+a <- 2
+b <- 0
+Y[a*(Y[,1]-1)+b*(Y[,2]-5)+z3<0,2] <- NA
+Y.obs <- na.omit(Y)
+```
+
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align = "center",echo=FALSE,fig.cap="\\label{fig:MAR} Distribution of complete data and oberved data."}
+#plotting
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MAR",ylim=c(0,0.3))
+lines(density(Y.obs[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Observed data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+```
+
+## (b){-}
+After applying the stichastic regression imputation, we replaced the missing value with fitted value where noise is added. From the density plot \ref{fig:fitMAR} we can see that the distribution of $Y_{2}$ in complete data and $Y_{2}$ in fitted data are nearly the same, which suggest that stochastic regression works perfect on this missing values of the dataset $Y$.
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#fitting a regression model
+Y <- as.data.frame(Y)
+fit <- lm(y2~y1,data = Y)
+summary(fit)
+#make pridiction
+predicted_Y <- predict(fit,newdata=Y)+rnorm(nrow(Y),0,sigma(fit))
+Y.fitted <- Y
+Y.fitted[which(is.na(Y$y2)==TRUE),2] <- predicted_Y[which(is.na(Y$y2)==TRUE)]
+```
+
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align = 'center',echo=FALSE,fig.cap="\\label{fig:fitMAR} Distribution of complete data and fitted data"}
+#plotting
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MAR",ylim=c(0,0.3))
+lines(density(Y.fitted[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Fitted data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+```
+Also from the residual plot figure \ref{fig:fitMARresid} we find that all assumptions are met which implies it's a good fit.
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align = 'center',echo=FALSE,fig.cap="\\label{fig:fitMARresid} Model checking of the linear "}
+#Residual plots
+par(mfrow=c(2,2))
+plot(fit)
+
+```
+
+## (c){-}
+In this case the mechanism is MNAR because the missing values depend on the unobserved data $Y_{2}$. From figure \ref{fig:MNAR} the marginal distribution plot of the complete data and observed data, we can see that the distributions between observed data and complete data are totally different. For the observed data, the desisty is slightly right-skewed, more concertrated and the mean is higher.
+```{r simulate2, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+Y.new <- cbind(y1,y2)
+Y.comp.new <- cbind(y1,y2)
+#missing constraint
+a <- 0
+b <- 2
+Y.new[a*(Y.new[,1]-1)+b*(Y.new[,2]-5)+z3<0,2] <- NA
+Y.obs.new <- na.omit(Y.new)
+```
+
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align = 'center',echo=FALSE,fig.cap="\\label{fig:MNAR} Distribution of complete data and observed data"}
+#plotting
+plot(density(Y.comp.new[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MNAR",ylim=c(0,0.3))
+lines(density(Y.obs.new[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Observed data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+```
+
+## (d){-}
+After applying the stichastic regression imputation, we replaced the missing value with fitted value where noise is added. From the density plot figure \ref{fig:fitMNAR} we can see that the distribution of $Y_{2}$ in complete data and $Y_{2}$ in fitted data are still different. In fitted data it seems more symmetric but it's still far from the complete data distribution. This is because in MNAR dataset, missing data depends on unobserved data, which indicates that in this case single imputation may be inappropriate.
+\newpage
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#fitting a regression model
+Y.new <- as.data.frame(Y.new)
+fit.new <- lm(y2~y1,data = Y.new)
+summary(fit.new)
+#make pridiction
+predicted_Y.new <- predict(fit.new,newdata=Y.new)+rnorm(nrow(Y.new),0,sigma(fit))
+Y.fitted.new <- Y.new
+Y.fitted.new[which(is.na(Y.new$y2)==TRUE),2] <- predicted_Y.new[which(is.na(Y.new$y2)==TRUE)]
+```
+
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align = 'center',echo=FALSE,fig.cap="\\label{fig:fitMNAR} Distribution of complete data and fitted data"}
+#plotting
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MNAR",ylim=c(0,0.3))
+lines(density(Y.fitted.new[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Fitted data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+```
+After checking the residual plots in figure \ref{fig:fitMNARresid}, we find the residual has zero mean, constant variance, normal distribution and independent from each other, thus linear regression is appropriate in imputation.
+```{r , include = TRUE, message = FALSE, tidy = TRUE, fig.align='center',echo=FALSE,fig.cap="\\label{fig:fitMNARresid} residual plots"}
+#residual plots
+par(mfrow=c(2,2))
+plot(fit.new)
+```
+\newpage
+# 4{-}
+## (a){-}
+From table \ref{tab:summary}, we can find that the mean of the recovery time is 19.27, also the standard devidation is 12.21. The correlation between recovery time and blood pressure is -0.02 while the correlation between recovery time and logarithm(base 10) of the dose of drug is 0.239.
+```{r, eval = TRUE,echo=FALSE}
+load("databp.Rdata")
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#find index of the complete data
+ind <- which(is.na(databp$recovtime) == FALSE) #indices of subjects with recover time observed
+data.obs <- databp[ind,]
+#have a look at the whole summary of the data set.
+my_skim <- skim_with(numeric = sfl(hist = NULL))
+my_skim(databp)  %>%
+  dplyr::select(-skim_type) %>%
+  kable(col.names = c("Variable", "Missing", "Complete", "Mean", "SD", "Min.", "1st Q.", "Median",
+                        "3rd Q.", "Max."),
+        caption = '\\label{tab:summary} Summary statistics on recovery time.',
+        booktabs = TRUE, format = "latex", digits = 2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#find the correlation between recovery time between drug dose and blood pressure
+Cors <- data.obs%>%
+        cor()
+
+Cors <- as.data.frame(Cors)%>%dplyr::select(recovtime)
+
+Cors %>% kable(caption = '\\label{tab:cor} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+## (b){-}
+In this case we replace missing value with its mean, namely 19.27. Obviously the mean of recovery time is 19.27,plus the sd is 11.42. From the table \ref{tab:cor.mean.imp} the correlation between recovery time and bloodpressure, the correlation between recovery time and drug dose are -0.019 and 0.215 respectively which don't change much.
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Do the mean imputation
+data.mean.imp <- databp
+data.mean.imp[-ind,3] <- 19.27
+#Corrlation tables
+Cors.mean.imp <- data.mean.imp%>%cor()
+Cors.mean.imp <- as.data.frame(Cors.mean.imp)%>%dplyr::select(recovtime)
+Cors.mean.imp%>%
+  kable(caption = '\\label{tab:cor.mean.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after mean imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+## (c){-}
+After implementing conditional mean imputation, we obtain the table \ref{tab:summ.reg.imp} and table \ref{tab:cor.reg.imp} which show us the recovery mean time equals to 19.44 and its sd is 11.564. The correlation between recovery time and bloodpressure, the correlation between recovery time and drug dose are -0.011 and 0.280 respectively, which indicates that linear regression may overestimate the correlation between dependent and independent variables.
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Do the linear regression imputation
+data.reg.imp <- databp
+fit.reg.imp <- lm(recovtime~.,data=data.reg.imp)
+#make prediction and impute predicted values in missing value slots
+#make pridiction
+predicted_reg.imp <- predict(fit.reg.imp,newdata=data.reg.imp)
+data.reg.imp[-ind,3] <- predicted_reg.imp[-ind]
+
+data.reg.imp%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:summ.reg.imp} summary of the imputated recovery time after linear regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Find the correlation of the imputated data
+Cors.reg.imp <- data.reg.imp%>%cor()
+Cors.reg.imp <- as.data.frame(Cors.reg.imp)%>%dplyr::select(recovtime)
+Cors.reg.imp%>%
+  kable(caption = '\\label{tab:cor.reg.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after linear regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+
+## (d){-}
+After the stochastic imputation, we yield mean of 19.40 and sd of 12.21 from table \ref{tab:summ.sto.imp}. From the table \ref{tab:cor.sto.imp} the correlation between recovery time and bloodpressure, the correlation between recovery time and drug dose are -0.044 and 0.249 respectively. One thing we must take care is that adding noise can sometimes cause the recovery time negative, which is not a valid value. In this case we should sample the noise again to make sure every value is positive.
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Do the prediction by adding noises
+data.sto.imp <- databp
+set.seed(99)
+predicted_sto.imp <- predict(fit.reg.imp,newdata=data.reg.imp)+rnorm(nrow(databp),0,sigma(fit.reg.imp))
+data.sto.imp[-ind,3] <- predicted_sto.imp[-ind]
+
+data.sto.imp%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:summ.sto.imp} summary of the recovery time after stochastic imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Find the correlation of the imputated data
+Cors.sto.imp <- data.sto.imp%>%cor()
+Cors.sto.imp <- as.data.frame(Cors.sto.imp)%>%dplyr::select(recovtime)
+Cors.sto.imp%>%
+  kable(caption = '\\label{tab:cor.sto.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after stochastic regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+## (e){-}
+
+After predictive mean matching, From table \ref{tab:sum.pmm}, we can find that the mean of the recovery time is 19.44 and its sd is 12.23. The correlation between recovery time and blood pressure is -0.032 while the correlation between recovery time and logarithm(base 10) of the dose of drug is 0.304, as can be seen in table \ref{tab:cor.pmm}.
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Do the hot deck imputation, we know the row of missing value are 4, 10 and 22
+data.pmm <- databp
+data.donor <- predicted_reg.imp[ind]
+donor1 <- which.min(abs(data.donor-predicted_reg.imp[4]))
+donor2 <- which.min(abs(data.donor-predicted_reg.imp[10]))
+donor3 <- which.min(abs(data.donor-predicted_reg.imp[22]))
+data.pmm[4,3] <- data.obs[donor1,3]
+data.pmm[10,3] <- data.obs[donor2,3]
+data.pmm[22,3] <- data.obs[donor3,3]
+#summerize the data
+data.pmm%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:sum.pmm} summary of the recovery time after pmm.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Find the correlation of the imputated data
+Cors.pmm <- data.pmm%>%cor()
+Cors.pmm <- as.data.frame(Cors.pmm)%>%dplyr::select(recovtime)
+Cors.pmm%>%
+  kable(caption = '\\label{tab:cor.pmm} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after pmm.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+## (f){-}
+Pmm have advantage over stochastic imputations because in pmm imputations are based on values observed elsewhere, so they are realistic. Imputations outside the observed data range will not occur, thus evading problems with meaningless imputations, for example, negative values in this case. Also, The model is implicit, which means that there is no need to define an explicit model for the distribution of the missing values. The problem of pmm may be that it will cause higher variance and may attenuate multivariate relationships.
+
+
+
+
+
+
+
+
+
+
+
+
+# Some thought of mine: Linear regression is not appropriate in imputation in question 4{-}
+From the correlation table \ref{tab:cor} we know the correlations are all small which suggests that the linear relationships are not significant, thus we draw 2 scatter plots to have a look at them. From  the scatter plots we find that there are almost no linear pattern. As for the formal analysis, in order to find the best model, we use AIC selection and we come up with a best model with only intercept, thus in this siuation where the correlations are small, the mean imputation is the same as the linear regression imputation. So we have the mean 19.27, the correlation between recovery time and blood pressure is -0.019 while the correlation between recovery time and logarithm(base 10) of the dose of drug is 0.215. 
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE, fig.cap="\\label{fig:scat} Exploratory plots."}
+#Exploratory analysis
+p1 <- ggplot(databp, aes(x = logdose, y = recovtime)) +
+  geom_point() +
+  labs(x = "log(drug dose)", y = "Recovery time") +
+  geom_smooth(method = "lm", se = FALSE)
+
+p2 <- ggplot(databp, aes(x = bloodp, y = recovtime)) +
+  geom_point() +
+  labs(x = "Blood pressure", y = "Recovery time") +
+  geom_smooth(method = "lm", se = FALSE)
+
+grid.arrange(p1,p2)
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE}
+#Formal analysis
+fit.imp <- lm(recovtime~.,data=databp)
+#We fit a best model to our respond variable
+step.model <- stepAIC(fit.imp ,direction="backward",trace=FALSE)
+summary(step.model)
+```
+
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#Exploratory analysis
+par(mfrow=c(2,2))
+plot(step.model)
+```
+Also when checking the resiudual plots, we find the resiuals do not have zero mean, constant variance, and do not follow the normal distribution, which means Conditional mean imputation is not appropriate in this situation. 
+
+\newpage
+# applendix{-}
+## (3){-}
+### (a){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#generate z1,z2,z3
+n <- 500
+set.seed(5)
+z1 <- rnorm(500)
+set.seed(6)
+z2 <- rnorm(500)
+set.seed(7)
+z3 <- rnorm(500)
+#calculate Y1, Y2
+y1 <- 1+z1
+y2 <- 5+2*z1+z2
+Y <- cbind(y1,y2)
+Y.comp <- cbind(y1,y2)
+#missing constraint
+a <- 2
+b <- 0
+Y[a*(Y[,1]-1)+b*(Y[,2]-5)+z3<0,2] <- NA
+Y.obs <- na.omit(Y)
+
+#plotting MAR
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MAR",ylim=c(0,0.3))
+lines(density(Y.obs[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Observed data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+```
+### (b){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#generate z1,z2,z3
+#fitting a regression model
+Y <- as.data.frame(Y)
+fit <- lm(y2~y1,data = Y)
+summary(fit)
+#make pridiction
+predicted_Y <- predict(fit,newdata=Y)+rnorm(nrow(Y),0,sigma(fit))
+Y.fitted <- Y
+Y.fitted[which(is.na(Y$y2)==TRUE),2] <- predicted_Y[which(is.na(Y$y2)==TRUE)]
+
+#plotting
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MAR",ylim=c(0,0.3))
+lines(density(Y.fitted[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Fitted data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+#Residual plots
+par(mfrow=c(2,2))
+plot(fit)
+
+```
+### (c){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+Y.new <- cbind(y1,y2)
+Y.comp.new <- cbind(y1,y2)
+#missing constraint
+a <- 0
+b <- 2
+Y.new[a*(Y.new[,1]-1)+b*(Y.new[,2]-5)+z3<0,2] <- NA
+Y.obs.new <- na.omit(Y.new)
+
+#plotting
+plot(density(Y.comp.new[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MNAR",ylim=c(0,0.3))
+lines(density(Y.obs.new[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Observed data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+```
+### (d){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#fitting a regression model
+Y.new <- as.data.frame(Y.new)
+fit.new <- lm(y2~y1,data = Y.new)
+summary(fit.new)
+#make pridiction
+predicted_Y.new <- predict(fit.new,newdata=Y.new)+rnorm(nrow(Y.new),0,sigma(fit))
+Y.fitted.new <- Y.new
+Y.fitted.new[which(is.na(Y.new$y2)==TRUE),2] <- predicted_Y.new[which(is.na(Y.new$y2)==TRUE)]
+
+#plotting
+plot(density(Y.comp[,2]), lwd = 2, col = "blue", xlab = "Y", main = "MNAR",ylim=c(0,0.3))
+lines(density(Y.fitted.new[,2]), lwd = 2, col = "red")
+legend("topleft", 0.02, legend = c("Complete data", "Fitted data"), 
+       col = c("blue", "red"), lty = c(1,1,1), lwd = c(2,2,2), bty ="n")
+
+#residual plots
+par(mfrow=c(2,2))
+plot(fit.new)
+```
+## 4{-}
+### (a){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+
+load("databp.Rdata")
+
+#find index of the complete data
+ind <- which(is.na(databp$recovtime) == FALSE) #indices of subjects with recover time observed
+data.obs <- databp[ind,]
+#have a look at the whole summary of the data set.
+my_skim <- skim_with(numeric = sfl(hist = NULL))
+my_skim(databp)  %>%
+  dplyr::select(-skim_type) %>%
+  kable(col.names = c("Variable", "Missing", "Complete", "Mean", "SD", "Min.", "1st Q.", "Median",
+                        "3rd Q.", "Max."),
+        caption = '\\label{tab:summary} Summary statistics on recovery time.',
+        booktabs = TRUE, format = "latex", digits = 2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+
+
+#find the correlation between recovery time between drug dose and blood pressure
+Cors <- data.obs%>%
+        cor()
+
+Cors <- as.data.frame(Cors)%>%dplyr::select(recovtime)
+
+Cors %>% kable(caption = '\\label{tab:cor} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+### (b){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#Do the mean imputation
+data.mean.imp <- databp
+data.mean.imp[-ind,3] <- 19.27
+#Corrlation tables
+Cors.mean.imp <- data.mean.imp%>%cor()
+Cors.mean.imp <- as.data.frame(Cors.mean.imp)%>%dplyr::select(recovtime)
+Cors.mean.imp%>%
+  kable(caption = '\\label{tab:cor.mean.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after mean imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+### (c){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#Do the linear regression imputation
+data.reg.imp <- databp
+fit.reg.imp <- lm(recovtime~.,data=data.reg.imp)
+#make prediction and impute predicted values in missing value slots
+#make pridiction
+predicted_reg.imp <- predict(fit.reg.imp,newdata=data.reg.imp)
+data.reg.imp[-ind,3] <- predicted_reg.imp[-ind]
+
+data.reg.imp%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:summ.reg.imp} summary of the imputated recovery time after linear regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+#calculate corrlations
+Cors.reg.imp <- data.reg.imp%>%cor()
+Cors.reg.imp <- as.data.frame(Cors.reg.imp)%>%dplyr::select(recovtime)
+Cors.reg.imp%>%
+  kable(caption = '\\label{tab:cor.reg.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after linear regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+### (d){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#Do the prediction by adding noises
+data.sto.imp <- databp
+set.seed(99)
+predicted_sto.imp <- predict(fit.reg.imp,newdata=data.reg.imp)+rnorm(nrow(databp),0,sigma(fit.reg.imp))
+data.sto.imp[-ind,3] <- predicted_sto.imp[-ind]
+
+data.sto.imp%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:summ.sto.imp} summary of the recovery time after stochastic imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+
+#Find the correlation of the imputated data
+Cors.sto.imp <- data.sto.imp%>%cor()
+Cors.sto.imp <- as.data.frame(Cors.sto.imp)%>%dplyr::select(recovtime)
+Cors.sto.imp%>%
+  kable(caption = '\\label{tab:cor.sto.imp} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after stochastic regression imputation.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+### (e){-}
+```{r, include = TRUE, message = FALSE, tidy = TRUE,echo=TRUE,eval=FALSE, fig.cap="\\label{fig:res.imp} residual plot."}
+#Do the hot deck imputation, we know the row of missing value are 4, 10 and 22
+data.pmm <- databp
+data.donor <- predicted_reg.imp[ind]
+donor1 <- which.min(abs(data.donor-predicted_reg.imp[4]))
+donor2 <- which.min(abs(data.donor-predicted_reg.imp[10]))
+donor3 <- which.min(abs(data.donor-predicted_reg.imp[22]))
+data.pmm[4,3] <- data.obs[donor1,3]
+data.pmm[10,3] <- data.obs[donor2,3]
+data.pmm[22,3] <- data.obs[donor3,3]
+#summerize the data
+data.pmm%>%summarize(mean=mean(recovtime),sd=sd(recovtime))%>%kable(caption = '\\label{tab:sum.pmm} summary of the recovery time after pmm.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+#Find the correlation of the imputated data
+Cors.pmm <- data.pmm%>%cor()
+Cors.pmm <- as.data.frame(Cors.pmm)%>%dplyr::select(recovtime)
+Cors.pmm%>%
+  kable(caption = '\\label{tab:cor.pmm} correlation between recovery time and blood pressure and the correlation between recovery time and logarithm(base 10) of the dose of drug after pmm.', booktabs = TRUE, digits = 3) %>%
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
